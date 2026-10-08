@@ -1,0 +1,16 @@
+# Render 一键部署配置（免费层公网服务器）
+# 使用方法：
+#   1. 把本项目推送到 GitHub
+#   2. 打开 https://dashboard.render.com → New + → Blueprint
+#   3. 选择本仓库，Render 自动按下述配置创建服务
+services:
+  - type: web
+    name: zhuji-mahjong          # 部署后地址为 https://zhuji-mahjong.onrender.com
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_VERSION
+        value: "20"

@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>诸暨麻将 · 联机</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    color: #fff;
+    overflow: hidden;
+    background: radial-gradient(ellipse at center, #2f8f5b 0%, #206b43 70%, #175033 100%);
+  }
+  .wrap {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: safe center;
+    gap: 22px;
+    padding: 20px;
+    overflow-y: auto;
+  }
+  .brand h1 { font-size: 42px; letter-spacing: 10px; text-shadow: 0 3px 8px rgba(0,0,0,.5); }
+  .brand p { margin-top: 8px; text-align: center; color: #cfe8db; letter-spacing: 2px; font-size: 14px; }
+
+  .cards { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; }
+  .card {
+    width: 250px;
+    background: linear-gradient(160deg, rgba(255,255,255,.12), rgba(255,255,255,.05));
+    border: 1px solid rgba(255,255,255,.22);
+    border-radius: 16px;
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 10px 24px rgba(0,0,0,.3);
+  }
+  .card h2 { font-size: 20px; letter-spacing: 2px; }
+  .card .ico { font-size: 34px; }
+  .card p { font-size: 12.5px; color: #cfe8db; line-height: 1.6; min-height: 38px; }
+  .card input {
+    width: 100%;
+    padding: 9px 12px;
+    font-size: 15px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.3);
+    background: rgba(0,0,0,.25);
+    color: #fff;
+    outline: none;
+  }
+  .card input::placeholder { color: #9fc7b2; }
+  .card input:focus { border-color: #f5c542; }
+  .btn {
+    padding: 11px;
+    font-size: 16px;
+    font-weight: bold;
+    letter-spacing: 3px;
+    color: #5a3300;
+    background: linear-gradient(#ffe08a, #f5c542);
+    border: 1px solid #c7941b;
+    border-radius: 9px;
+    cursor: pointer;
+    box-shadow: 0 3px 8px rgba(0,0,0,.35);
+    transition: filter .12s, transform .12s;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { transform: translateY(1px); }
+  .btn.ghost {
+    background: rgba(255,255,255,.12);
+    color: #eaf6ef;
+    border-color: rgba(255,255,255,.3);
+    box-shadow: none;
+  }
+  .msg { font-size: 12.5px; min-height: 18px; color: #ffb4ad; text-align: center; }
+  .msg.ok { color: #b8f0c5; }
+
+  /* AI 补位开关 */
+  .opt-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #cfe8db; }
+  .opt-row input { width: auto; margin: 0; }
+  .opt-row .opt-tip { font-size: 11.5px; color: #9fc7b2; }
+
+  /* 分段选择器（组局人数 / 游戏模式） */
+  .seg-label { font-size: 12px; color: #cfe8db; align-self: flex-start; }
+  .seg { display: flex; gap: 6px; width: 100%; }
+  .seg-item {
+    flex: 1; text-align: center; font-size: 13px; padding: 7px 0;
+    background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.25);
+    border-radius: 8px; color: #cfe8db; cursor: pointer; user-select: none;
+    transition: background .15s, color .15s;
+  }
+  .seg-item.on { background: #f5c542; border-color: #c7941b; color: #43310a; font-weight: bold; }
+  .score-pick { display: none; gap: 6px; width: 100%; }
+  .score-pick.show { display: flex; }
+  .score-pick input { flex: 1.2; min-width: 0; }
+  .lobby .mode-info {
+    width: 100%; text-align: center; font-size: 13px; color: #ffe08a;
+    background: rgba(0,0,0,.18); border-radius: 10px; padding: 8px 14px;
+  }
+  .switch {
+    position: relative; width: 46px; height: 24px; flex: none;
+    background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.3);
+    border-radius: 13px; cursor: pointer; transition: background .15s;
+  }
+  .switch::after {
+    content: ""; position: absolute; left: 2px; top: 2px;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #eaf6ef; transition: left .15s;
+  }
+  .switch.on { background: #f5c542; border-color: #c7941b; }
+  .switch.on::after { left: 24px; }
+  .lobby .cfg-row {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(0,0,0,.18); border-radius: 10px; padding: 8px 14px;
+    font-size: 13px; color: #cfe8db;
+  }
+  .lobby .cfg-row .cfg-state { color: #ffe08a; font-weight: bold; }
+  .seat .bot-tag { font-size: 10px; background: #8a6df0; color: #fff; border-radius: 8px; padding: 1px 7px; margin-left: 6px; }
+
+  /* 房间大厅 */
+  .lobby { display: none; width: min(640px, 94vw); }
+  .lobby.show { display: flex; flex-direction: column; gap: 18px; align-items: center; }
+  .room-id-box { text-align: center; }
+  .room-id-box .lab { font-size: 13px; color: #cfe8db; letter-spacing: 2px; }
+  .room-id-box .rid {
+    font-size: 52px;
+    font-weight: bold;
+    letter-spacing: 12px;
+    font-family: Consolas, 'Courier New', monospace;
+    color: #ffe08a;
+    text-shadow: 0 0 18px rgba(245,197,66,.5);
+  }
+  .room-id-box .tip { font-size: 12px; color: #bfe3cf; margin-top: 4px; }
+  .seats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+  }
+  .seat {
+    background: rgba(0,0,0,.22);
+    border: 1px dashed rgba(255,255,255,.28);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 64px;
+  }
+  .seat.taken { border-style: solid; border-color: rgba(245,197,66,.55); background: rgba(245,197,66,.1); }
+  .seat .sname { width: 44px; font-size: 15px; font-weight: bold; color: #ffe08a; }
+  .seat .pname { font-size: 16px; font-weight: bold; }
+  .seat .empty { color: #8fb8a4; font-size: 14px; }
+  .seat .me-tag { font-size: 10px; background: #f5c542; color: #5a3300; border-radius: 8px; padding: 1px 7px; margin-left: 6px; }
+  .seat .ready-tag { font-size: 10px; background: #3fae63; color: #fff; border-radius: 8px; padding: 1px 7px; margin-left: 6px; }
+  .seat .unready-tag { font-size: 10px; background: rgba(255,255,255,.15); color: #cfe8db; border-radius: 8px; padding: 1px 7px; margin-left: 6px; }
+  .lobby .ready-count { font-size: 14px; color: #ffe08a; letter-spacing: 1px; }
+
+  /* ===== 矮屏 / 手机横屏：紧凑布局，卡片尽量单行排列 ===== */
+  @media (max-height: 620px) {
+    .wrap { justify-content: flex-start; gap: 10px; padding: 10px 14px; }
+    .brand h1 { font-size: 26px; letter-spacing: 6px; }
+    .brand p { font-size: 12px; margin-top: 3px; }
+    .cards { gap: 10px; margin-top: 0 !important; }
+    .card {
+      width: auto; flex: 1 1 0; min-width: 168px; max-width: 240px;
+      padding: 11px 12px; gap: 5px; border-radius: 12px;
+    }
+    .card .ico { font-size: 21px; line-height: 1.1; }
+    .card h2 { font-size: 16px; letter-spacing: 1px; }
+    .card p { font-size: 11.5px; line-height: 1.45; min-height: 0; }
+    .card input { padding: 6px 10px; font-size: 14px; }
+    .btn { padding: 8px; font-size: 14px; letter-spacing: 2px; }
+    .seg-label { font-size: 11px; line-height: 1.2; }
+    .seg-item { font-size: 12px; padding: 5px 0; }
+    .opt-row { font-size: 12px; }
+    .msg { min-height: 8px; font-size: 11.5px; }
+
+    /* 房间大厅同步紧凑化 */
+    .lobby { width: min(640px, 96vw); }
+    .lobby.show { gap: 12px; }
+    .room-id-box .rid { font-size: 38px; letter-spacing: 8px; }
+    .seats { gap: 10px; }
+    .seat { min-height: 52px; padding: 10px 12px; gap: 8px; }
+  }
+  /* 极矮屏（360 高横屏）：再压缩，隐藏图标 */
+  @media (max-height: 430px) {
+    .card .ico { display: none; }
+    .card { gap: 4px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 主菜单 -->
+  <div id="menu">
+    <div class="brand">
+      <h1>诸暨麻将</h1>
+      <p>单机离线随时玩 · 联机开房好友对战</p>
+    </div>
+    <div class="cards" style="margin-top:26px">
+      <div class="card">
+        <div class="ico">🀄</div>
+        <h2>单机模式</h2>
+        <p>无需网络，与三位电脑对手随时开局，完整诸暨双财神规则。</p>
+        <a class="btn" href="/single/index.html" style="text-align:center;text-decoration:none">开始单机</a>
+      </div>
+
+      <div class="card">
+        <div class="ico">🏠</div>
+        <h2>创建联机房间</h2>
+        <p>创建房间获得房号，邀请好友输入房号加入，齐人开局。</p>
+        <input id="create-name" maxlength="8" placeholder="你的昵称（最多8字）">
+        <span class="seg-label">组局人数：</span>
+        <div class="seg" id="seg-count">
+          <span class="seg-item" data-v="2">2 人</span>
+          <span class="seg-item" data-v="3">3 人</span>
+          <span class="seg-item on" data-v="4">4 人</span>
+        </div>
+        <span class="seg-label">游戏模式：</span>
+        <div class="seg" id="seg-mode">
+          <span class="seg-item on" data-v="cumulate">累计模式</span>
+          <span class="seg-item" data-v="bankroll">带分模式</span>
+        </div>
+        <div class="score-pick" id="score-pick">
+          <span class="seg-item" data-v="100">100分</span>
+          <span class="seg-item" data-v="200">200分</span>
+          <span class="seg-item on" data-v="500">500分</span>
+          <input id="create-score-custom" inputmode="numeric" placeholder="自定义≥10">
+        </div>
+        <div class="opt-row">
+          <input type="checkbox" id="create-aifill">
+          <label for="create-aifill">空位自动填充电脑</label>
+        </div>
+        <button class="btn" id="btn-create">创建房间</button>
+        <div class="msg" id="create-msg"></div>
+      </div>
+
+      <div class="card">
+        <div class="ico">🚪</div>
+        <h2>加入房间</h2>
+        <p>输入好友提供的 4 位房间号与你的昵称，加入牌局。</p>
+        <input id="join-name" maxlength="8" placeholder="你的昵称（最多8字）">
+        <input id="join-id" maxlength="4" inputmode="numeric" placeholder="4 位房间号">
+        <button class="btn" id="btn-join">加入房间</button>
+        <div class="msg" id="join-msg"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 房间大厅 -->
+  <div class="lobby" id="lobby">
+    <div class="room-id-box">
+      <div class="lab">房间号</div>
+      <div class="rid" id="lobby-rid">----</div>
+      <div class="tip">把 4 位房间号告诉好友，在首页输入即可加入</div>
+    </div>
+    <div class="seats" id="lobby-seats"></div>
+    <div class="mode-info" id="lobby-modeinfo">4 人局 · 累计模式</div>
+    <div class="cfg-row" id="lobby-cfg">
+      <span>空位电脑补位：<span class="cfg-state" id="cfg-state">关</span></span>
+      <div class="switch" id="cfg-switch" title="仅房主可切换"></div>
+    </div>
+    <div class="ready-count" id="lobby-wait">等待好友加入…（1 / 4，0 人已准备）</div>
+    <div style="display:flex;gap:12px">
+      <button class="btn" id="btn-ready">准 备</button>
+      <button class="btn ghost" id="btn-leave">离开房间</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="/single/audio-manager.js?v=1"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+(function () {
+  var socket = null;
+  var mySeat = -1;
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function setMsg(id, text, ok) {
+    var el = $(id);
+    el.textContent = text || '';
+    el.className = 'msg' + (ok ? ' ok' : '');
+  }
+
+  function saveSession(s) {
+    try { sessionStorage.setItem('mj_session', JSON.stringify(s)); } catch (e) {}
+  }
+  function clearSession() {
+    try { sessionStorage.removeItem('mj_session'); } catch (e) {}
+  }
+
+  // APP 内（WebView）默认连接公网服务器，任何网络下均可联机；
+  // 原生桥保存的地址仅作高级覆盖（默认空）。浏览器内为空字符串 → 同源连接。
+  var PUBLIC_SERVER = 'https://zhuji-mahjong.onrender.com';
+  function appServerUrl() {
+    return window.NativeApp ? (window.NativeApp.getServerUrl() || PUBLIC_SERVER) : '';
+  }
+
+  function ensureSocket() {
+    if (socket) return socket;
+    var url = appServerUrl();
+    socket = io(url || undefined, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 2000,
+      timeout: 20000
+    });
+    socket.on('roomState', renderLobby);
+    // 四人全部准备，服务端通知开局：跳转对局页（身份 token 已存 sessionStorage，新页凭它重连）
+    socket.on('gameStart', function (data) {
+      window.location.href = 'game.html?roomId=' + encodeURIComponent(data.roomId);
+    });
+    return socket;
+  }
+
+  // 带超时的服务器请求：连不上 / 唤醒过久时明确提示，绝不无限转圈。
+  // 超时后 socket 仍在后台重连，用户再点一次即可成功。
+  function emitRoom(msgId, event, payload, waitingText, onOk) {
+    var sock = ensureSocket();
+    setMsg(msgId, waitingText, true);
+    var done = false;
+    var timer = setTimeout(function () {
+      if (done) return;
+      done = true;
+      setMsg(msgId, '连接服务器超时：请检查网络后重试；若服务器久未使用正在唤醒，请等待约1分钟后再点一次');
+    }, 45000);
+    sock.emit(event, payload, function (res) {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      if (!res || !res.ok) {
+        setMsg(msgId, (res && res.error) || '服务器返回错误，请重试');
+        return;
+      }
+      onOk(res);
+    });
+  }
+
+  // 页面刷新：若仍有有效身份，自动认回原座位（等待大厅）
+  var savedSession = null;
+  try { savedSession = JSON.parse(sessionStorage.getItem('mj_session') || 'null'); } catch (e) {}
+  if (savedSession && savedSession.token) {
+    ensureSocket().emit('rejoinRoom', { token: savedSession.token }, function (res) {
+      if (res && res.ok) {
+        mySeat = res.seat;
+        showLobby(res.roomId);
+      } else {
+        clearSession();
+      }
+    });
+  }
+
+  // ---- 创建卡片：人数 / 模式 / 初始积分 分段选择 ----
+  var formPick = { playerCount: 4, mode: 'cumulate', initialScore: 500 };
+
+  function bindSeg(containerId, key, afterPick) {
+    $(containerId).addEventListener('click', function (e) {
+      var item = e.target.closest('.seg-item');
+      if (!item) return;
+      $(containerId).querySelectorAll('.seg-item').forEach(function (el) {
+        el.classList.toggle('on', el === item);
+      });
+      var v = item.dataset.v;
+      if (key === 'playerCount') v = Number(v);
+      if (key === 'initialScore') v = Number(v);
+      formPick[key] = v;
+      if (afterPick) afterPick(v, item);
+    });
+  }
+  bindSeg('seg-count', 'playerCount');
+  bindSeg('seg-mode', 'mode', function (v) {
+    $('score-pick').classList.toggle('show', v === 'bankroll');
+  });
+  bindSeg('score-pick', 'initialScore', function (v, item) {
+    $('create-score-custom').value = '';
+  });
+  // 自定义初始积分：输入后取消预设高亮
+  $('create-score-custom').addEventListener('input', function () {
+    $('score-pick').querySelectorAll('.seg-item').forEach(function (el) {
+      el.classList.remove('on');
+    });
+  });
+
+  function pickedInitialScore() {
+    var custom = $('create-score-custom').value.trim();
+    if (custom) {
+      var n = Math.floor(Number(custom));
+      if (isFinite(n) && n >= 10) return n;
+    }
+    return formPick.initialScore;
+  }
+
+  // 创建房间
+  $('btn-create').addEventListener('click', function () {
+    var name = $('create-name').value.trim();
+    if (!name) { setMsg('create-msg', '请先输入昵称'); return; }
+    var aiFill = $('create-aifill').checked;
+    var options = {
+      aiFill: aiFill,
+      playerCount: formPick.playerCount,
+      mode: formPick.mode,
+      initialScore: pickedInitialScore()
+    };
+    emitRoom('create-msg', 'createRoom', { name: name, options: options },
+      '正在连接服务器并创建房间（首次连接可能需等待约1分钟）…',
+      function (res) {
+        mySeat = res.seat;
+        saveSession({ roomId: res.roomId, seat: res.seat, token: res.token, name: name });
+        showLobby(res.roomId);
+      });
+  });
+
+  // 加入房间
+  $('btn-join').addEventListener('click', function () {
+    var name = $('join-name').value.trim();
+    var roomId = $('join-id').value.trim();
+    if (!name) { setMsg('join-msg', '请先输入昵称'); return; }
+    if (!/^\d{4}$/.test(roomId)) { setMsg('join-msg', '请输入 4 位房间号'); return; }
+    emitRoom('join-msg', 'joinRoom', { name: name, roomId: roomId },
+      '正在连接服务器并加入房间（首次连接可能需等待约1分钟）…',
+      function (res) {
+        mySeat = res.seat;
+        saveSession({ roomId: res.roomId, seat: res.seat, token: res.token, name: name });
+        showLobby(res.roomId);
+      });
+  });
+
+  // 准备 / 取消准备（请求期间锁定按钮，ack 返回后按服务端状态更新，防连点）
+  var readyBusy = false;
+  $('btn-ready').addEventListener('click', function () {
+    if (readyBusy || !socket) return;
+    readyBusy = true;
+    socket.emit('toggleReady', null, function (res) {
+      readyBusy = false;
+      if (!res.ok) { alert(res.error); }
+    });
+  });
+
+  // AI 补位开关（房主点击）
+  $('cfg-switch').addEventListener('click', function () {
+    if (!socket || mySeat !== 0) return;
+    var on = !$('cfg-switch').classList.contains('on');
+    socket.emit('setRoomOptions', { aiFill: on }, function (res) {
+      if (!res || !res.ok) alert((res && res.error) || '切换失败');
+    });
+  });
+
+  // 离开房间
+  $('btn-leave').addEventListener('click', function () {
+    if (socket) socket.emit('leaveRoom');
+    clearSession();
+    mySeat = -1;
+    $('lobby').classList.remove('show');
+    $('menu').style.display = '';
+  });
+
+  function showLobby(roomId) {
+    $('lobby-rid').textContent = roomId;
+    $('menu').style.display = 'none';
+    $('lobby').classList.add('show');
+  }
+
+  var SEAT_LABELS = ['东家', '南家', '西家', '北家'];
+
+  // 房间状态 -> 座位渲染
+  function renderLobby(state) {
+    $('lobby-rid').textContent = state.roomId;
+    var pc = (state.options && state.options.playerCount) || 4;
+    var box = $('lobby-seats');
+    box.innerHTML = '';
+    var taken = 0, humanN = 0, readyN = 0, iAmReady = false;
+    // 仅渲染配置人数内的座位
+    state.players.slice(0, pc).forEach(function (p, seat) {
+      var d = document.createElement('div');
+      d.className = 'seat' + (p ? ' taken' : '');
+      var left = '<div class="sname">' + SEAT_LABELS[seat] + '</div>';
+      if (p) {
+        taken++;
+        if (p.isAI) {
+          left += '<div><span class="pname">' + escapeHtml(p.name) + '</span>' +
+                  '<span class="bot-tag">电脑</span>' +
+                  '<span class="ready-tag">已准备</span></div>';
+        } else {
+          humanN++;
+          if (p.ready) readyN++;
+          if (seat === mySeat && p.ready) iAmReady = true;
+          left += '<div><span class="pname">' + escapeHtml(p.name) + '</span>' +
+                  (seat === mySeat ? '<span class="me-tag">我</span>' : '') +
+                  (p.ready ? '<span class="ready-tag">已准备</span>'
+                           : '<span class="unready-tag">未准备</span>') + '</div>';
+        }
+      } else {
+        left += '<div class="empty">虚位以待</div>';
+      }
+      d.innerHTML = left;
+      box.appendChild(d);
+    });
+
+    // 玩法信息：N人局 · 累计/带分
+    var mode = state.options && state.options.mode === 'bankroll' ? 'bankroll' : 'cumulate';
+    var modeText = pc + ' 人局 · ' +
+      (mode === 'bankroll' ? '带分模式（初始 ' + state.options.initialScore + ' 分）'
+                           : '累计模式');
+    $('lobby-modeinfo').textContent = modeText;
+
+    // 配置开关状态
+    var aiFill = !!(state.options && state.options.aiFill);
+    $('cfg-switch').classList.toggle('on', aiFill);
+    $('cfg-switch').style.opacity = (mySeat === 0) ? '1' : '.5';
+    $('cfg-state').textContent = aiFill ? '开（空位由电脑补）' : '关';
+
+    var wait;
+    if (taken === pc) {
+      wait = '已到齐 ' + pc + ' 人（' + readyN + ' / ' + pc + ' 已准备）';
+    } else if (aiFill) {
+      wait = '真人 ' + humanN + ' 位（空位开局自动补电脑），' + readyN + ' 人已准备';
+    } else {
+      wait = '等待好友加入…（' + taken + ' / ' + pc + '，' + readyN + ' 人已准备）';
+    }
+    $('lobby-wait').textContent = wait;
+    $('btn-ready').textContent = iAmReady ? '取消准备' : '准 备';
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+})();
+</script>
+</body>
+</html>

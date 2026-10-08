@@ -1,0 +1,14 @@
+{
+  "name": "zhuji-mahjong-backend",
+  "version": "1.0.0",
+  "description": "诸暨麻将联机对战后端",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "socket.io": "^4.8.4",
+    "socket.io-client": "^4.8.4"
+  }
+}

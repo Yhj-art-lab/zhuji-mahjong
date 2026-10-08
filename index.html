@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>诸暨麻将</title>
+<link rel="stylesheet" href="style.css?v=stage52">
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <h1>诸暨麻将 <span class="sub">（单机最终版 · 阶段七：排序/动画/边界修复/完整明细）</span></h1>
+  </div>
+
+  <!-- 牌桌外左上角信息（小字小牌）：本局财神 + 翻基准牌 + 牌墙剩余张数 -->
+  <div class="hud-topleft" id="hud-topleft">
+    <div class="hud-block hud-wilds">
+      <span class="hud-label">财神</span>
+      <span class="cp-slot hud-slot cp-slot-wild" id="wild-slot"><span class="placeholder">待开局</span></span>
+    </div>
+    <div class="hud-block">
+      <span class="hud-label">翻基准</span>
+      <span class="cp-slot hud-slot" id="indicator-slot"><span class="placeholder">待开局</span></span>
+    </div>
+    <div class="hud-block hud-wall">余牌 <b id="wall-count">--</b></div>
+    <!-- 本局掷骰结果：开局掷到桌面的两颗骰子落定后缩小飞到此位常驻 -->
+    <div class="hud-block hud-dice" id="hud-dice">
+      <div class="dice-box dice-settled" id="dice-box">
+        <div class="die die-idle" id="die-1"></div>
+        <div class="die die-idle" id="die-2"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="table">
+    <!-- 四家座位信息：固定在牌桌四边外缘中心，不参与牌桌内容缩放 -->
+    <div class="seat-info seat-info-n" data-seat="3">
+      <span class="seat-name" id="name-seat-3">北家</span>
+      <span class="tile-count" id="count-seat-3">0 张</span>
+      <span class="seat-score" id="score-seat-3">0 分</span>
+    </div>
+    <div class="seat-info seat-info-e" data-seat="0">
+      <span class="seat-name" id="name-seat-0">东家</span>
+      <span class="tile-count" id="count-seat-0">0 张</span>
+      <span class="seat-score" id="score-seat-0">0 分</span>
+    </div>
+    <div class="seat-info seat-info-w" data-seat="2">
+      <span class="seat-name" id="name-seat-2">西家</span>
+      <span class="tile-count" id="count-seat-2">0 张</span>
+      <span class="seat-score" id="score-seat-2">0 分</span>
+    </div>
+    <div class="seat-info seat-info-s" data-seat="1">
+      <span class="seat-name" id="name-seat-1">南家（你）</span>
+      <span class="tile-count" id="count-seat-1">0 张</span>
+      <span class="seat-score" id="score-seat-1">0 分</span>
+    </div>
+
+    <div class="table-inner">
+    <!-- 牌墙：四家面前各 17 摞，每摞两张叠放；按顺时针绕桌（北左→右 / 西上→下 / 南右→左 / 东下→上） -->
+    <div class="wall-row wall-row-h wall-top" id="wall-seat-3"></div>
+    <div class="wall-row wall-row-v wall-right" id="wall-seat-2"></div>
+    <div class="wall-row wall-row-h wall-bottom" id="wall-seat-1"></div>
+    <div class="wall-row wall-row-v wall-left" id="wall-seat-0"></div>
+
+    <!-- 吃/碰/杠副露组：从各家自己的左角落起依次向自家右排列，固定在牌桌四角 -->
+    <div class="melds mcorner mcorner-tl" id="sets-seat-0"></div><!-- 东家：左上角，上→下 -->
+    <div class="melds mcorner mcorner-tr" id="sets-seat-3"></div><!-- 北家：右上角，右→左 -->
+    <div class="melds mcorner mcorner-bl" id="sets-seat-1"></div><!-- 南家：左下角，左→右 -->
+    <div class="melds mcorner mcorner-br" id="sets-seat-2"></div><!-- 西家：右下角，下→上 -->
+
+    <!-- 北家（对家，顶部）：核心座位 3 -->
+    <div class="seat seat-top" data-seat="3">
+      <div class="backs" id="backs-seat-3"></div>
+    </div>
+
+    <!-- 东家（上家，左侧）：核心座位 0 -->
+    <div class="seat seat-left" data-seat="0">
+      <div class="backs backs-v" id="backs-seat-0"></div>
+    </div>
+
+    <!-- 西家（下家，右侧）：核心座位 2 -->
+    <div class="seat seat-right" data-seat="2">
+      <div class="backs backs-v" id="backs-seat-2"></div>
+    </div>
+
+    <!-- 中央舞台：罗盘骰子（牌河从罗盘边缘向外风车式排布） -->
+    <div class="center-stage">
+      <!-- 中央罗盘：东南西北风位 + 庄家小红灯 + 两颗骰子 + 四家牌河 -->
+      <div class="center-panel compass-panel">
+        <div class="compass" id="compass">
+          <span class="wind wind-n" id="wind-3">北</span>
+          <span class="wind wind-e" id="wind-0">东</span>
+          <span class="wind wind-w" id="wind-2">西</span>
+          <span class="wind wind-s" id="wind-1">南</span>
+          <span class="lamp" id="lamp-3"></span>
+          <span class="lamp" id="lamp-0"></span>
+          <span class="lamp" id="lamp-2"></span>
+          <span class="lamp" id="lamp-1"></span>
+          <!-- 连庄次数小方块：分布在各风位字外侧（与庄家灯相反侧），数字朝向牌桌中心 -->
+          <span class="streak-box streak-n" id="streak-box-3">00</span>
+          <span class="streak-box streak-e" id="streak-box-0">00</span>
+          <span class="streak-box streak-w" id="streak-box-2">00</span>
+          <span class="streak-box streak-s" id="streak-box-1">00</span>
+          <!-- 回合倒计时：轮到某家出牌/鸣牌抉择时，圆心仅显示倒计时数字 -->
+          <div class="center-timer" id="center-timer">00</div>
+          <!-- 掷骰舞台：开局两颗立体骰子在此翻滚落定，随后缩小飞入左上角 HUD -->
+          <div class="dice-stage" id="dice-stage"></div>
+
+          <!-- 牌河：从罗盘边缘（各家视角的最左边）起、每排 10 张向外换行 -->
+          <!-- 北家牌河：罗盘上方，从其左（屏幕右）向其右（屏幕左）排，换行向上 -->
+          <div class="discard discard-ring discard-ring-top" id="discard-seat-3"></div>
+          <!-- 东家牌河：罗盘左方，从其左（屏幕上）向其右（屏幕下）排，换列向左 -->
+          <div class="discard discard-ring discard-ring-left" id="discard-seat-0"></div>
+          <!-- 西家牌河：罗盘右方，从其左（屏幕下）向其右（屏幕上）排，换列向右 -->
+          <div class="discard discard-ring discard-ring-right" id="discard-seat-2"></div>
+          <!-- 南家牌河：罗盘下方，从其左（屏幕左）向其右（屏幕右）排，换行向下 -->
+          <div class="discard discard-ring discard-ring-bottom" id="discard-seat-1"></div>
+        </div>
+
+        <!-- 罗盘下方：开局「开始」按钮（仅未开局时显示） -->
+        <div class="center-info">
+          <!-- 出牌/连庄提示：保留 DOM 供逻辑与测试使用，但不显示 -->
+          <div class="streak-info hidden" id="streak-info" style="display:none"></div>
+          <div class="status-log" id="status-log" style="display:none"></div>
+          <button class="center-start-btn" id="btn-start" type="button">开始</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 南家（玩家，底部）：核心座位 1 -->
+    <div class="seat seat-bottom" data-seat="1">
+      <div class="hand" id="hand-seat-1"></div>
+    </div>
+
+    <!-- 听牌提示条：玩家听牌时显示可胡的牌（置于座位区外，避免被座位牌数统计计入） -->
+    <div class="tenpai-bar hidden" id="tenpai-bar"></div>
+    </div><!-- /.table-inner -->
+  </div>
+
+  <!-- 鸣牌动作栏：可胡时弹【胡】（优先级最高）；可碰/杠弹【杠】【碰】；
+       自家出牌阶段可【暗杠】【补杠】；放弃鸣牌点【过】 -->
+  <div class="action-bar hidden" id="action-bar">
+    <button class="action-btn btn-hu hidden" id="btn-hu" type="button">胡</button>
+    <button class="action-btn btn-gang hidden" id="btn-gang" type="button">杠</button>
+    <button class="action-btn btn-peng hidden" id="btn-peng" type="button">碰</button>
+    <button class="action-btn btn-chi hidden" id="btn-chi" type="button">吃</button>
+    <span class="chi-picker hidden" id="chi-picker"></span>
+    <button class="action-btn btn-bugang hidden" id="btn-bugang" type="button">补杠</button>
+    <button class="action-btn btn-angang hidden" id="btn-angang" type="button">暗杠</button>
+    <button class="action-btn btn-pass hidden" id="btn-pass" type="button">过</button>
+  </div>
+
+  <!-- 结算弹窗（胡牌/流局共用）：财神、胡牌方式、连庄状态、牌型、台数、各家本局与累计收支 -->
+  <div class="modal-mask hidden" id="win-modal">
+    <div class="modal-box">
+      <div class="modal-title" id="win-title">胡牌</div>
+      <div class="modal-wilds" id="win-wilds"></div>
+      <div class="modal-way" id="win-way"></div>
+      <div class="modal-streak hidden" id="win-streak"></div>
+      <div class="modal-patterns" id="win-patterns"></div>
+      <div class="modal-tai" id="win-tai"></div>
+      <div class="modal-score" id="win-score"></div>
+      <!-- 带分模式：积分不足截断提示 / 本场结束提示 -->
+      <div class="modal-bust hidden" id="win-bust"></div>
+      <!-- 结算按钮：赢家显示「开始」（需等其他三家准备完毕才可点）；其他三家显示「准备」 -->
+      <div class="modal-actions">
+        <button class="action-btn btn-ready hidden" id="btn-ready" type="button">准备</button>
+        <button class="action-btn btn-start-next hidden" id="btn-start-next" type="button" disabled>开始</button>
+        <!-- 带分模式整场结束（任意一家清零）：重开新场（积分恢复初始值）或更换玩法 -->
+        <button class="action-btn btn-again hidden" id="btn-again" type="button">再来一场</button>
+        <button class="action-btn btn-change-mode hidden" id="btn-change-mode" type="button">更换玩法</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 玩法选择弹窗：开局前选择结算模式（累计模式 / 带分模式）与初始积分 -->
+  <div class="modal-mask hidden" id="mode-modal">
+    <div class="modal-box mode-box">
+      <div class="modal-title">选择玩法</div>
+      <div class="mode-options">
+        <div class="mode-option selected" id="mode-cumulate" data-mode="cumulate">
+          <div class="mode-name">累计模式</div>
+          <div class="mode-desc">各家积分从 0 开始，逐局结算不断累计，无上限</div>
+        </div>
+        <div class="mode-option" id="mode-bankroll" data-mode="bankroll">
+          <div class="mode-name">带分模式</div>
+          <div class="mode-desc">各家带相同初始积分开局；付分以余额封顶（输到 0 为止），任意一家积分归 0 则本场结束，重开新场恢复初始积分</div>
+        </div>
+      </div>
+      <div class="bankroll-config hidden" id="bankroll-config">
+        <div class="modal-label">初始积分（四家相同）：</div>
+        <div class="score-presets">
+          <button class="score-preset selected" data-score="100" type="button">100</button>
+          <button class="score-preset" data-score="200" type="button">200</button>
+          <button class="score-preset" data-score="500" type="button">500</button>
+          <button class="score-preset" data-score="1000" type="button">1000</button>
+        </div>
+        <div class="score-custom">自定义
+          <input type="number" id="score-input" min="10" step="10" value="100"> 分
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="action-btn btn-mode-start" id="btn-mode-start" type="button">确定</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="audio-manager.js?v=1"></script>
+<script src="mahjong-core.js?v=stage28"></script>
+<script src="game.js?v=stage55"></script>
+</body>
+</html>
