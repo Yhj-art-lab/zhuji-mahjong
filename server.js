@@ -44,10 +44,13 @@ if (SOCKET_READY) {
   });
 
   // 联机前端静态资源
-  app.use(express.static(path.join(__dirname, '..', 'client')));
+  // server.js 既可能在 backend/ 子目录（本地开发），也可能在仓库根目录（Render 上散放），自动适配
+  const serverDirName = path.basename(__dirname);
+  const repoRoot = serverDirName === 'backend' ? path.join(__dirname, '..') : __dirname;
+  app.use(express.static(path.join(repoRoot, 'client')));
 
   // 单机模式：仅暴露原单机版 5 个文件（白名单），单机模式完整保留
-  const singleRoot = path.join(__dirname, '..');
+  const singleRoot = repoRoot;
   const SINGLE_FILES = new Set(['index.html', 'game.js', 'mahjong-core.js', 'style.css', 'audio-manager.js']);
   app.get('/single/:file', (req, res) => {
     if (!SINGLE_FILES.has(req.params.file)) return res.status(404).end();
